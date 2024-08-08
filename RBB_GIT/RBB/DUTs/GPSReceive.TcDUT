@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="GPSReceive" Id="{0648b9f2-8743-4303-8f43-74b0d884d798}">
+    <Declaration><![CDATA[TYPE GPSReceive :
+UNION
+	value : STRING;
+	packed : ARRAY[0..69] OF BYTE;
+END_UNION
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

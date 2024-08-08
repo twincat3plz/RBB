@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FC_BatCalculate" Id="{efa77ea7-4b46-4dc8-9c66-7a0b2cd15977}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_BatCalculate : LREAL
+VAR_INPUT
+	lbatdata : LREAL;
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FC_BatCalculate := ((3000-lbatdata)/3000)*100; // 1000 UDP
+]]></ST>
+    </Implementation>
+    <LineIds Name="FC_BatCalculate">
+      <LineId Id="10" Count="0" />
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

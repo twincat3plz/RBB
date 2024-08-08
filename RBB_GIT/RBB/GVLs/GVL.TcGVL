@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <GVL Name="GVL" Id="{3e4349e6-a99a-4aa8-b94a-96e30307ccae}">
+    <Declaration><![CDATA[VAR_GLOBAL
+	
+	RxBufferEL6001		: ComBuffer;	
+	TxBufferEL6001		: ComBuffer;	
+	
+	RxBufferEL6002	    : ComBuffer;	
+	TxBufferEL6002		: ComBuffer;	
+	
+	RxBufferEL6021		: ComBuffer;	
+	TxBufferEL6021		: ComBuffer;
+	
+	
+	AI_00 AT%I* : WORD;
+    AI_01 AT%I* : WORD;
+	
+	//Algorithm_Sw : BOOL;
+ 
+ 
+	 
+END_VAR
+
+VAR_GLOBAL CONSTANT
+ TXDATASIZE : INT := 101; // 59(60) , 23(24) , 17(18) , 101(102) , test 105(106)
+ 
+ TXDATASIZE_1 : INT := 12; 
+ TXDATASIZE_2 : INT := 15; 
+ 
+ 
+ RXDATASIZE : INT := 1000; 
+ 
+ 
+ PLCPRJ_BUFFER_SIZE					: UDINT := 1000;(* Max. internal fifo/receiver buffer size *)
+
+(* Some project specific error codes *)
+PLCPRJ_ERROR_SENDFIFO_OVERFLOW		: UDINT := 16#8103;
+PLCPRJ_ERROR_RECFIFO_OVERFLOW		: UDINT := 16#8104;
+
+END_VAR]]></Declaration>
+  </GVL>
+</TcPlcObject>

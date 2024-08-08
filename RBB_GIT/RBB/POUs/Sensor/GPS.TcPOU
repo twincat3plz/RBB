@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="GPS" Id="{309d49d5-bb32-4726-be7f-661da3c01d98}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM GPS
+VAR
+	fbGPSCommunication : FB_GPSCommunication;
+	GpsRXdata : GPSReceive;
+	gpslat1 : Union_STRING_2;
+	gpslat2 : Union_STRING_10;
+	gpslon1 : Union_STRING_3;
+	gpslon2 : Union_STRING_10;
+	gpsSpeed1 : Union_STRING_3;
+	gpslati,gpslatd,gpslat : LREAL;
+	gpsloni,gpslond,gpslon : LREAL;
+	gpsSpeedknots,gpsSpeedms : LREAL;
+	bGPSrror : BOOL;
+    GPSErrorID : ComError_t;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[fbGPSCommunication(TxBuffer:=TxBufferEL6002, RxBuffer:=RxBufferEL6002,
+bReceiveError => bGPSrror, eReceiveErrorID =>GPSErrorID);
+GpsRXdata.value := fbGPSCommunication.sReceivedString ;
+
+gpslat1.Packed[0] :=  GpsRXdata.packed[19];
+gpslat1.Packed[1] :=  GpsRXdata.packed[20];
+gpslati := STRING_TO_LREAL(gpslat1.value);
+
+gpslat2.Packed[0] := GpsRXdata.packed[21];
+gpslat2.Packed[1] := GpsRXdata.packed[22];
+gpslat2.Packed[2] := GpsRXdata.packed[23];
+gpslat2.Packed[3] := GpsRXdata.packed[24];
+gpslat2.Packed[4] := GpsRXdata.packed[25];
+gpslat2.Packed[5] := GpsRXdata.packed[26];
+gpslat2.Packed[6] := GpsRXdata.packed[27];
+gpslat2.Packed[7] := GpsRXdata.packed[28];
+gpslat2.Packed[8] := GpsRXdata.packed[29];
+gpslat2.Packed[9] := GpsRXdata.packed[30];
+
+gpslatd := STRING_TO_LREAL(gpslat2.value)/60;
+
+gpslat := gpslati + gpslatd ;
+
+gpslon1.Packed[0] := GpsRXdata.packed[34];
+gpslon1.Packed[1] := GpsRXdata.packed[35];
+gpslon1.Packed[2] := GpsRXdata.packed[36];
+gpsloni := STRING_TO_LREAL(gpslon1.value);
+
+
+gpslon2.Packed[0] := GpsRXdata.packed[37];
+gpslon2.Packed[1] := GpsRXdata.packed[38];
+gpslon2.Packed[2] := GpsRXdata.packed[39];
+gpslon2.Packed[3] := GpsRXdata.packed[40];
+gpslon2.Packed[4] := GpsRXdata.packed[41];
+gpslon2.Packed[5] := GpsRXdata.packed[42];
+gpslon2.Packed[6] := GpsRXdata.packed[43];
+gpslon2.Packed[7] := GpsRXdata.packed[44];
+gpslon2.Packed[8] := GpsRXdata.packed[45];
+gpslon2.Packed[9] := GpsRXdata.packed[46];
+
+gpslond :=STRING_TO_LREAL(gpslon2.value)/60;
+
+gpslon := gpsloni + gpslond;
+
+gpsspeed1.Packed[0] := GpsRXdata.packed[50];
+gpsspeed1.Packed[1] := GpsRXdata.packed[51];
+gpsspeed1.Packed[2] := GpsRXdata.packed[52];
+
+gpsspeedknots := STRING_TO_LREAL(gpsspeed1.value);
+gpsspeedms := gpsspeedknots * 1.943;
+]]></ST>
+    </Implementation>
+    <LineIds Name="GPS">
+      <LineId Id="6" Count="0" />
+      <LineId Id="72" Count="0" />
+      <LineId Id="7" Count="19" />
+      <LineId Id="28" Count="20" />
+      <LineId Id="50" Count="6" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

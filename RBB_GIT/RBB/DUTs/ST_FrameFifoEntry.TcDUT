@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="ST_FrameFifoEntry" Id="{dfde6578-1c84-4813-b066-8354e1f37d71}">
+    <Declaration><![CDATA[TYPE ST_FrameFifoEntry :
+STRUCT
+	 caseSelector : INT;              // Selector to choose the active structure
+    data         : U_FrameFifoEntrydata;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

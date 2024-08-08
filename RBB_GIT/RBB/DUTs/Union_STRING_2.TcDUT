@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="Union_STRING_2" Id="{321435e4-07c3-4bef-abbe-ca9bdd4dc070}">
+    <Declaration><![CDATA[TYPE Union_STRING_2 :
+UNION
+	value : STRING;
+	Packed : ARRAY[0..1] OF BYTE;
+END_UNION
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

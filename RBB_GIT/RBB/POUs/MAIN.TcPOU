@@ -1,0 +1,523 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="MAIN" Id="{eec39924-ee85-430b-a0ea-c7f63449b4a4}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+
+// BAT
+
+rBatvoltage : REAL; // UDP DATA
+rBatcurrent : REAL; // UDP DATA
+rBatWattsec : LREAL; 
+AccumulatedBatData : LREAL :=0.0; // UDP DATA
+lbatstate : LREAL; // UDP DATA
+
+battimer : TON;
+
+HMIbatV : STRING; // HMI
+HMIbatA : STRING; // HMI
+HMIbatW : STRING; // HMI
+HMIbatS : STRING; // HMI
+
+//AHRS
+
+bAHRSError : BOOL;
+AHRSErrorID : ComError_t;
+
+HMIYAW : STRING;
+HMIPITCH : STRING;
+HMIROLL : STRING;
+
+// ESC
+
+bESCerror : BOOL;
+ESCerrorID : ComError_t;
+thrusterrightrpm : UINT;
+thrusterleftrpm : UINT;
+
+
+// GPS
+
+bGPSrror : BOOL;
+GPSErrorID : ComError_t;
+
+GPSlat1 : LREAL;
+GPSlon1 : LREAL;
+
+HMILatitude : STRING;
+HMILongitude : STRING;
+HMISpeed : STRING;
+	
+// LEAK SENSOR
+
+SystemLeakState : BOOL;
+Leaksensorerror : BOOL;
+Leaksensorerrorid : MODBUS_ERRORS;
+
+// RELAY	
+  
+RelayModuledata : BYTE ;
+RelayModuleError : BOOL;
+RelayModuleErrorID : UDINT;
+
+// UDP
+
+UDPAlgorithm : INT;
+UDPtimer : TON;
+
+
+// Algorithm
+
+    state : UINT := 0;
+    timer : TON;
+    stayTimer : TON;
+    distance : LREAL;
+    azimuth : LREAL;
+   
+    lat1, lon1, lat2, lon2, lat3, lon3, lat4, lon4 : LREAL;
+	lat5, lon5, lat6, lon6, lat7, lon7, lat8, lon8,
+	lat9, lon9, lat10, lon10, lat11, lon11, lat12, lon12,
+	lat13, lon13, lat14, lon14, lat15, lon15, lat16, lon16 : LREAL;
+	
+    baseLat, baseLon : LREAL;
+    currentTargetLat, currentTargetLon : LREAL;
+    waypointIndex : UINT :=1;
+	turnAngle : LREAL;
+	turnangelzero : BOOL;
+	esccontroltimer : TON;
+	esccontroltimer1 : TON;
+	esccontroltimer2 : TON;
+	esccontroltimer3 : TON;
+	esccontroltimer4 : TON;
+		
+	bturnangle : BOOL := TRUE;
+	bturnangle2 : BOOL := TRUE;
+	bstraight : BOOL := TRUE;
+	bstop : BOOL := TRUE;
+	
+// Utilities
+
+	bPCShutdown: BOOL;
+	fbShutdown: NT_Shutdown;
+	bShutdown: BOOL :=FALSE;
+	
+	step : INT;
+	start : BOOL;
+	Shutdown : BOOL := FALSE;
+	
+	i: INT;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[// BAT 
+
+rBatvoltage := FC_AnalogRead(selectData := AI_00, SelectRange := 600);
+rBatcurrent := FC_AnalogRead(selectData := AI_01, SelectRange := 100);
+rBatWattsec := (rBatvoltage*rBatcurrent)/3600;
+
+IF NOT battimer.Q THEN
+battimer(IN:=TRUE, PT := T#1S);
+ELSE 
+battimer(IN:=FALSE);
+AccumulatedBatData := AccumulatedBatData + rBatWattsec;
+END_IF
+
+lbatstate := FC_BatCalculate(lbatdata := AccumulatedBatData);
+
+HMIbatV := FC_HMIRead(linput := rBatvoltage, inumber := 2);
+HMIbatA := FC_HMIRead(linput := rBatcurrent, inumber := 2);
+HMIbatW := FC_HMIRead(linput := AccumulatedBatData , inumber := 2);
+HMIbatS := FC_HMIRead(linput := lbatstate, inumber := 2);
+ 
+// AHRS 
+
+AHRS();
+bAHRSError := AHRS.bAHRSError;
+AHRSErrorID := AHRS.AHRSErrorID;
+
+HMIYAW :=FC_HMIRead(linput := AHRS.ResultYAW, inumber := 1);
+HMIPITCH :=FC_HMIRead(linput := AHRS.ResultPITCH, inumber := 1);
+HMIROLL :=FC_HMIRead(linput := AHRS.ResultROLL, inumber := 1);
+
+// ESC
+
+ESC();
+bESCerror := ESC.bESCerror;
+ESCerrorID := ESC.ESCerrorID;
+
+IF ESC.sMotorspeed = 'ESC1:1650' THEN
+	thrusterrightrpm := 750;
+ELSIF ESC.sMotorspeed = 'ESC1:1750' THEN
+	thrusterrightrpm := 1250;
+ELSIF  ESC.sMotorspeed = 'ESC1:1700' THEN
+	thrusterrightrpm := 1000;
+ELSIF ESC.sMotorspeed = 'ESC2:1350' THEN
+	thrusterleftrpm := 750;
+ELSIF  ESC.sMotorspeed = 'ESC2:1250' THEN
+	thrusterleftrpm := 1250;
+ELSIF  ESC.sMotorspeed = 'ESC2:1300' THEN
+	thrusterleftrpm := 1000;
+END_IF 
+
+
+// GPS 
+
+GPS();
+bGPSrror := GPS.bGPSrror;
+GPSErrorID := GPS.GPSErrorID;
+
+GPSlat1 := GPS.gpslat;
+GPSlon1 := GPS.gpslon;
+
+HMILatitude :=FC_HMIRead(linput := GPS.gpslat, inumber := 1);
+HMILongitude :=FC_HMIRead(linput := GPS.gpslon, inumber := 1);
+HMISpeed :=FC_HMIRead(linput := GPS.gpsSpeedms, inumber := 1);
+
+// LEAK SENSOR
+
+LeakSensor();
+SystemLeakState := LeakSensor.LeakSensorState;
+Leaksensorerror := LeakSensor.Leaksensorerror;
+Leaksensorerrorid := LeakSensor.leaksensorerrorid;
+ 
+// RELAY Module
+
+RelayModule();
+RelayModuleError := RelayModule.RelayModuleError;
+RelayModuleErrorID := RelayModule.RelayModuleErrorID;
+RelayModuledata := RelayModule.relaymodulesendOnData;
+
+// UDPCommunication
+
+UDPCommunication_RBB();
+	CASE UDPAlgorithm OF
+		0 :
+		IF UDPCommunication_RBB.UDPstart THEN
+			IF UDPCommunication_RBB.Receiveaddress = 16#01 THEN
+				UDPAlgorithm := 10;
+			ELSIF UDPCommunication_RBB.Receiveaddress = 16#02 THEN
+				UDPAlgorithm := 10;
+			ELSIF UDPCommunication_RBB.Receiveaddress = 16#03 THEN
+				UDPAlgorithm := 10;
+			ELSIF UDPCommunication_RBB.Receiveaddress = 16#04 THEN
+				UDPAlgorithm := 10;
+			END_IF		
+		END_IF
+		
+		10 :
+		 UDPCommunication_RBB.UDPstart := FALSE;
+		 UDPtimer(IN:= TRUE, PT:= T#1S);
+		 IF UDPtimer.Q THEN
+		 UDPCommunication_RBB.UDPstart3 := TRUE;
+		 UDPtimer(IN:= FALSE);
+		 UDPAlgorithm := 20;
+		 END_IF
+		 		 		 
+		 20 :
+		 UDPtimer(IN:= TRUE, PT:= T#1S);
+		 IF UDPtimer.Q THEN
+		 UDPCommunication_RBB.UDPstart3 := FALSE;	
+         UDPtimer(IN:= FALSE);
+		 UDPAlgorithm := 30; 
+		 END_IF
+		 		 
+		 30 : 
+		 UDPtimer(IN:= TRUE, PT:= T#1S);
+		 IF UDPtimer.Q THEN
+		  IF UDPCommunication_RBB.Receiveaddress = 16#03 THEN
+			UDPCommunication_RBB.UDPstart2 := TRUE;
+			UDPtimer(IN:= FALSE);
+		    UDPAlgorithm := 40;
+		  ELSE
+		  UDPCommunication_RBB.UDPstart := TRUE;		
+		  UDPCommunication_RBB.bSendOnceToRemote2 := FALSE;
+		  UDPtimer(IN:= FALSE);
+		  UDPAlgorithm := 0;
+		  END_IF
+		 END_IF
+		 
+		 40 :
+		 UDPtimer(IN:= TRUE, PT:= T#1S);
+		 IF UDPtimer.Q THEN
+		 UDPCommunication_RBB.UDPstart2 := FALSE;	
+         UDPtimer(IN:= FALSE);
+		 UDPAlgorithm := 50; 
+		 END_IF
+		 
+		 50 :
+		 UDPtimer(IN:= TRUE, PT:= T#1S);
+		 IF UDPtimer.Q THEN
+		 UDPCommunication_RBB.UDPstart := TRUE;
+		 UDPCommunication_RBB.bSendOnceToRemote1 := FALSE;
+		 UDPtimer(IN:= FALSE);
+		 UDPAlgorithm := 0;
+		 END_IF
+	END_CASE
+
+
+// Algorithm
+
+IF UDPCommunication_RBB.Algorithmstop THEN	
+
+  IF UDPCommunication_RBB.Algorithm_Sw THEN
+    CASE state OF
+        0: // Start algorithm, initialize first target
+		    lat1 := UDPCommunication_RBB.packetwetpointlat1.value;
+			lon1 := UDPCommunication_RBB.packetwetpointlot1.value;
+            currentTargetLat := lat1;
+            currentTargetLon := lon1;
+            state := 10;
+			
+
+        10: // Calculate distance to the current target
+            distance := FC_HaversineDistance(GPS.gpslat, GPS.gpslon, currentTargetLat, currentTargetLon);
+            IF ABS(distance) <=10 THEN
+                state := 13; // Go to the stay state if already within 10m
+            ELSE
+                timer(IN := TRUE, PT := T#1S);
+                IF timer.Q THEN
+                    state := 11;
+                    timer(IN := FALSE); // Reset timer
+                END_IF
+            END_IF
+
+        11: // Calculate azimuth and move
+            azimuth := FC_CalculateAzimuth(GPS.gpslat, GPS.gpslon, currentTargetLat, currentTargetLon);
+            turnAngle := azimuth - UDPCommunication_RBB.packetahrsheading.value;
+			
+            IF turnAngle > 180 THEN
+                turnAngle := turnAngle - 360;
+            ELSIF turnAngle < -180 THEN
+                turnAngle := turnAngle + 360;
+            END_IF
+			
+			IF ABS(turnAngle) <= 25 THEN  
+                 state := 12; 
+											
+            ELSIF turnAngle > 0 THEN// Turn right
+			   IF bturnangle THEN
+				ESC.sMotorspeed := 'ESC2:1250'; //62.5%
+				esccontroltimer2(IN:=TRUE, PT:=T#1S);
+				 IF esccontroltimer2.Q THEN
+				   ESC.sMotorspeed := 'ESC1:1650';	// 37.5%			   
+				   esccontroltimer2(IN:=FALSE);
+                   bturnangle := FALSE;				   
+				 END_IF 			
+				END_IF 
+											
+            ELSE// Turn left	
+				 IF bturnangle2 THEN
+				  ESC.sMotorspeed := 'ESC1:1750'; //62.5% 
+				 esccontroltimer4(IN:=TRUE, PT:=T#1S);
+				  IF esccontroltimer4.Q THEN
+				   ESC.sMotorspeed := 'ESC2:1350'; //37.5%
+				   esccontroltimer4(IN:=FALSE);
+                   bturnangle2 := FALSE;				   
+				  END_IF 			
+				END_IF 
+		  END_IF 
+             				        
+			
+									
+		12 : // Move
+		
+		distance := FC_HaversineDistance(GPS.gpslat, GPS.gpslon, currentTargetLat, currentTargetLon);
+		azimuth := FC_CalculateAzimuth(GPS.gpslat, GPS.gpslon, currentTargetLat, currentTargetLon);
+        turnAngle := azimuth - UDPCommunication_RBB.packetahrsheading.value;
+			
+            IF turnAngle > 180 THEN
+                turnAngle := turnAngle - 360;
+            ELSIF turnAngle < -180 THEN
+                turnAngle := turnAngle + 360;
+            END_IF
+			
+			
+		
+            IF ABS(turnAngle) <= 25 THEN  
+			IF bstraight THEN
+				ESC.sMotorspeed := 'ESC2:1300'; //50%
+				esccontroltimer1(IN:=TRUE, PT:=T#1S);
+				 IF esccontroltimer1.Q THEN
+				   ESC.sMotorspeed := 'ESC1:1700'; // 50%
+				   esccontroltimer1(IN:=FALSE);
+                   bstraight := FALSE;				   
+				 END_IF 	
+                  ELSIF ABS(distance) <=10 THEN		         
+				   esccontroltimer3(IN:=TRUE, PT:=T#1S);
+				   IF esccontroltimer3.Q THEN	   
+				   ESC.sMotorspeed := 'stop';			   
+				   esccontroltimer3(IN:=FALSE);				
+				   state := 13;	
+				   END_IF
+			  END_IF  
+              ELSE
+                   state :=11;	
+	               bstraight := TRUE;
+				   bturnangle := TRUE;	
+				   bturnangle2 := TRUE;	
+              END_IF	
+
+
+        13: // Check distance again
+            stayTimer(IN := TRUE, PT := T#30S);
+            IF stayTimer.Q THEN
+				ESC.sMotorspeed := '';
+				   bstraight := TRUE;
+				   bturnangle := TRUE;	
+				   bturnangle2 := TRUE;	
+                state := 14; // Next waypoint or finish
+                stayTimer(IN := FALSE); // Reset stay timer
+            END_IF
+           
+
+
+        14: // Check if there are more waypoints to visit
+		    //waypointIndex 
+            CASE waypointIndex OF
+                1:
+				    lat2 := UDPCommunication_RBB.packetwetpointlat2.value;
+					lon2 := UDPCommunication_RBB.packetwetpointlot2.value;
+                    currentTargetLat := lat2;
+                    currentTargetLon := lon2;
+                    waypointIndex := 2;
+                    state := 10;
+                2:
+				    lat3 := UDPCommunication_RBB.packetwetpointlat3.value;
+					lon3 := UDPCommunication_RBB.packetwetpointlot3.value;
+                    currentTargetLat := lat3;
+                    currentTargetLon := lon3;
+                    waypointIndex := 3;
+                    state := 10;
+                3:
+				    lat4 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon4 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat4;
+                    currentTargetLon := lon4;
+                    waypointIndex := 4;
+                    state := 10;
+                4:
+				    lat5 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon5 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat5;
+                    currentTargetLon := lon5;
+                    waypointIndex := 5;
+                    state := 10;
+				5:
+				    lat6 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon6 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat6;
+                    currentTargetLon := lon6;
+                    waypointIndex := 6;
+                    state := 10;
+				6:
+				    lat7 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon7 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat7;
+                    currentTargetLon := lon7;
+                    waypointIndex := 7;
+                    state := 10;
+				7:
+				    lat8 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon8 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat8;
+                    currentTargetLon := lon8;
+                    waypointIndex := 8;
+                    state := 10;
+				8:
+				    lat9 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon9 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat9;
+                    currentTargetLon := lon9;
+                    waypointIndex := 9;
+                    state := 10;
+				9:
+				    lat10 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon10 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat10;
+                    currentTargetLon := lon10;
+                    waypointIndex := 10;
+                    state := 10;
+				10:
+				    lat11 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon11 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat11;
+                    currentTargetLon := lon11;
+                    waypointIndex := 11;
+                    state := 10;
+				11:
+				    lat12 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon12 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat12;
+                    currentTargetLon := lon12;
+                    waypointIndex := 12;
+                    state := 10;
+				12:
+				    lat13 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon13 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat13;
+                    currentTargetLon := lon13;
+                    waypointIndex := 13;
+                    state := 10;
+				13:
+				    lat14 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon14 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat14;
+                    currentTargetLon := lon14;
+                    waypointIndex := 14;
+                    state := 10;
+				14:
+				    lat15 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon15 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat15;
+                    currentTargetLon := lon15;
+                    waypointIndex := 15;
+                    state := 10;
+				15:
+				    lat16 := UDPCommunication_RBB.packetwetpointlat4.value;
+					lon16 := UDPCommunication_RBB.packetwetpointlot4.value;
+                    currentTargetLat := lat16;
+                    currentTargetLon := lon16;
+                    waypointIndex := 16;
+                    state := 10;  
+ 
+                 16 :  
+                    state := 20;
+            END_CASE	 
+                 20: 
+		        ESC.sMotorspeed := 'stop';
+				 
+	 			
+    END_CASE
+ELSE
+    // Reset state and timers if Algorithm_sw is turned off
+    state := 0;
+    timer(IN := FALSE);
+    stayTimer(IN := FALSE);
+    waypointIndex := 1; // Reset waypoint index
+END_IF 
+
+ELSE
+	esc.sMotorspeed := 'stop';
+END_IF
+
+
+// Utilities
+shutdown := UDPCommunication_RBB.controlshutdown;
+IF Shutdown THEN
+	bShutdown := TRUE;
+END_IF
+fbShutdown(
+NETID:= , 
+DELAY:= 5, 
+START:= bShutdown, 
+TMOUT:= , 
+BUSY=> , 
+ERR=> , 
+ERRID=> );  
+]]></ST>
+    </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="110" Count="404" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

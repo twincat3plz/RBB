@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_GPSCommunication" Id="{dc07147e-faa7-47f5-93fd-cf68bf69993a}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_GPSCommunication
+VAR_IN_OUT
+	TxBuffer	: ComBuffer;
+	RxBuffer	: ComBuffer;
+END_VAR
+
+VAR_OUTPUT
+	sReceivedString	: STRING;
+	bReceiveError	: BOOL;
+	eReceiveErrorID	: ComError_t;
+END_VAR
+
+VAR
+	Timer		: TON := (PT:=T#1S);
+	fbSend		: SendString;
+	bSendBusy	: BOOL;
+	eSendErrorID: ComError_t;
+	fbReceive		: ReceiveString;
+	sLastReceivedString: STRING;
+	bStringReceived	: BOOL;
+	bReceiveBusy	: BOOL;
+
+	bReceiveTimeout	: BOOL;
+	nReceiveCounter	: UDINT;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+Timer(IN:=TRUE);
+IF Timer.Q OR fbSend.Busy THEN
+	Timer(IN:=FALSE); (* reset timer *)
+	fbSend(	SendString:= ,
+			TXbuffer:= TxBuffer,
+			Busy=> bSendBusy,
+			Error=> );
+	IF fbSend.Error <> COMERROR_NOERROR THEN
+		eSendErrorID := fbSend.Error;
+	END_IF
+END_IF
+
+
+fbReceive(
+	Prefix:='$24',
+	Suffix:= '$2a',
+	Timeout:= T#1s,
+	ReceivedString:= sReceivedString,
+	RXbuffer:= RxBuffer,
+	StringReceived=> bStringReceived,
+	Busy=> bReceiveBusy,
+	Error=> ,
+	RxTimeout=> bReceiveTimeout );
+IF fbReceive.Error <> COMERROR_NOERROR THEN
+	eReceiveErrorID := fbReceive.Error;
+END_IF
+IF bStringReceived THEN
+	nReceiveCounter := nReceiveCounter + 1;
+	sLastReceivedString := sReceivedString;
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="FB_GPSCommunication">
+      <LineId Id="38" Count="29" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

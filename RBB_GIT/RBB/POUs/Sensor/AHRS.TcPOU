@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="AHRS" Id="{54470d22-868e-464e-9d81-3c4c5a7c314b}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM AHRS
+VAR
+	fbAHRSCommunication : FB_AHRSCommunication;
+	ahrsdatayaw, ahrsdatapitch, ahrsdataroll : Union_REAL;
+	ResultYAW, ResultPITCH, ResultROLL : REAL;
+	bAHRSError : BOOL;
+    AHRSErrorID : ComError_t;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[fbAHRSCommunication(TxBuffer:=TxBufferEL6001, RxBuffer:=RxBufferEL6001,
+bReceiveError => bAHRSError, eReceiveErrorID =>AHRSErrorID );
+
+ahrsdatayaw.Packed[0] := Background.stIn_EL6001.D[4];
+ahrsdatayaw.Packed[1] := Background.stIn_EL6001.D[5];
+ahrsdatayaw.Packed[2] := Background.stIn_EL6001.D[6];
+ahrsdatayaw.Packed[3] := Background.stIn_EL6001.D[7];
+ResultYAW := ahrsdatayaw.value;
+
+
+ahrsdatapitch.Packed[0] := Background.stIn_EL6001.D[8];
+ahrsdatapitch.Packed[1] := Background.stIn_EL6001.D[9];
+ahrsdatapitch.Packed[2] := Background.stIn_EL6001.D[10];
+ahrsdatapitch.Packed[3] := Background.stIn_EL6001.D[11];
+ResultPITCH := ahrsdatapitch.value;
+
+
+ahrsdataroll.Packed[0] := Background.stIn_EL6001.D[12];
+ahrsdataroll.Packed[1] := Background.stIn_EL6001.D[13];
+ahrsdataroll.Packed[2] := Background.stIn_EL6001.D[14];
+ahrsdataroll.Packed[3] := Background.stIn_EL6001.D[15];
+ResultROLL := ahrsdatapitch.value; ]]></ST>
+    </Implementation>
+    <LineIds Name="AHRS">
+      <LineId Id="29" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="6" Count="17" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="Union_UDINT" Id="{84233d4d-eccb-428f-9af3-961a06e07a2a}">
+    <Declaration><![CDATA[TYPE Union_UDINT :
+UNION
+	value : UDINT ;
+	packed : ARRAY[0..3] OF BYTE;
+END_UNION
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

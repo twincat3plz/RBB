@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_FrameFifo_2" Id="{726adbbc-8593-42b1-a82a-01b4716d9adb}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_FrameFifo_2
+VAR_INPUT
+	bLog		: BOOL := FALSE;
+	stPut		: ST_FrameFifoEntrydata_2;
+	
+END_VAR
+VAR_OUTPUT
+	bOk			: BOOL;
+	stGet		: ST_FrameFifoEntrydata_2;
+	nCount		: UDINT := 0;
+END_VAR
+VAR
+	fbBuffer 	: FB_MemRingBuffer;
+	buffer		: ARRAY[0..NUMBER_OF_BYTE_FOR_ALL_FRAMEFIFO] OF BYTE;
+	i : INT;
+END_VAR
+VAR CONSTANT
+	SIZE_OF_FRAMEFIFO : UDINT := SIZEOF(ST_FrameFifoEntrydata_2);
+	MAX_NUMBER_OF_FRAMEFIFO : UDINT := 10;
+	NUMBER_OF_BYTE_FOR_ALL_FRAMEFIFO : UDINT := SIZE_OF_FRAMEFIFO*MAX_NUMBER_OF_FRAMEFIFO;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[;]]></ST>
+    </Implementation>
+    <Action Name="AddTail" Id="{cd34f04f-c317-4bf9-8dee-ada79687db57}">
+      <Implementation>
+        <ST><![CDATA[
+fbBuffer.A_AddTail( pBuffer:= ADR(buffer), cbBuffer:= SIZEOF(buffer),
+					pWrite:= ADR( stPut ), cbWrite := SIZEOF( stPut ), 
+					bOk=>bOk, nCount=>nCount );
+	
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="Clear" Id="{59f6a1b0-697c-415c-92e7-db31c6829484}">
+      <Implementation>
+        <ST><![CDATA[
+FOR i:=0 TO TXDATASIZE_2 BY 1 DO
+stget.txdata[i] := 0;
+END_FOR
+
+
+stGet.stRemoteAddr.nPort := 0;
+stGet.stRemoteAddr.sAddr := '';
+fbBuffer.A_Reset( pBuffer := ADR( buffer ), cbBuffer := SIZEOF( buffer ), 
+					bOk=>bOk, nCount=>nCount ); 
+]]></ST>
+      </Implementation>
+    </Action>
+    <Action Name="RemoveHead" Id="{6af1ed2c-86f4-4919-992b-aeaf42f0b210}">
+      <Implementation>
+        <ST><![CDATA[
+IF nCount = 0 THEN	 
+
+FOR i:=0 TO TXDATASIZE_2 BY 1 DO
+stget.txdata[i] := 0;
+END_FOR
+	stGet.stRemoteAddr.nPort := 0;
+	stGet.stRemoteAddr.sAddr := '';
+	bOk := FALSE;
+	RETURN;
+END_IF
+
+fbBuffer.A_RemoveHead( pBuffer:= ADR(buffer), cbBuffer:= SIZEOF(buffer),
+						pRead := ADR( stGet ), cbRead := SIZEOF( stGet ),
+						bOk=>bOk, nCount=>nCount );
+						
+
+
+]]></ST>
+      </Implementation>
+    </Action>
+    <LineIds Name="FB_FrameFifo_2">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FrameFifo_2.AddTail">
+      <LineId Id="22" Count="0" />
+      <LineId Id="27" Count="1" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FrameFifo_2.Clear">
+      <LineId Id="62" Count="0" />
+      <LineId Id="66" Count="1" />
+      <LineId Id="65" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="59" Count="0" />
+      <LineId Id="4" Count="3" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_FrameFifo_2.RemoveHead">
+      <LineId Id="2" Count="1" />
+      <LineId Id="104" Count="0" />
+      <LineId Id="134" Count="1" />
+      <LineId Id="107" Count="0" />
+      <LineId Id="5" Count="8" />
+      <LineId Id="94" Count="0" />
+      <LineId Id="14" Count="1" />
+      <LineId Id="1" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

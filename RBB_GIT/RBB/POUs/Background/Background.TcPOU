@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="Background" Id="{a474ab24-92b2-4faa-ab36-f1eb12602ab9}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM Background
+VAR
+	
+	fbEL6001Ctrl		: SerialLineControl;
+	bEL6001CtrlError	: BOOL;
+	eEL6001CtrlErrorID	: ComError_t;
+	
+	fbEL6002Ctrl		: SerialLineControl;
+	bEL6002CtrlError	: BOOL;
+	eEL6002CtrlErrorID	: ComError_t;
+	
+	fbEL6021Ctrl		: SerialLineControl;
+	bEL6021CtrlError	: BOOL;
+	eEL6021CtrlErrorID	: ComError_t;
+	
+END_VAR
+
+VAR_OUTPUT
+	stIn_EL6001 AT %I*	: EL6inData22B;	
+	stOut_EL6001 AT %Q*	: EL6outData22B;
+	
+	stIn_EL6002 AT %I*	: EL6inData22B;	
+	stOut_EL6002 AT %Q*	: EL6outData22B;
+	
+	stIn_EL6021 AT %I*	: EL6inData22B;	
+	stOut_EL6021 AT %Q*	: EL6outData22B;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+fbEL6001Ctrl(
+	Mode:= SERIALLINEMODE_EL6_22B, 
+	pComIn:= ADR(stIn_EL6001), 
+	pComOut:= ADR(stOut_EL6001), 
+	SizeComIn:= SIZEOF(stIn_EL6001), 
+	Error=> , 
+	ErrorID=> , 
+	TxBuffer:= TxBufferEL6001, 
+	RxBuffer:= RxBufferEL6001 );
+	
+IF fbEL6001Ctrl.Error THEN
+	bEL6001CtrlError := TRUE;
+	eEL6001CtrlErrorID := fbEL6001Ctrl.ErrorID;
+END_IF
+
+fbEL6002Ctrl(
+	Mode:= SERIALLINEMODE_EL6_22B, 
+	pComIn:= ADR(stIn_EL6002), 
+	pComOut:= ADR(stOut_EL6002), 
+	SizeComIn:= SIZEOF(stIn_EL6002), 
+	Error=> , 
+	ErrorID=> , 
+	TxBuffer:= TxBufferEL6002, 
+	RxBuffer:= RxBufferEL6002 );
+	
+IF fbEL6002Ctrl.Error THEN
+	bEL6002CtrlError := TRUE;
+	eEL6002CtrlErrorID := fbEL6002Ctrl.ErrorID;
+END_IF
+
+fbEL6021Ctrl(
+	Mode:= SERIALLINEMODE_EL6_22B, 
+	pComIn:= ADR(stIn_EL6021), 
+	pComOut:= ADR(stOut_EL6021), 
+	SizeComIn:= SIZEOF(stIn_EL6021), 
+	Error=> , 
+	ErrorID=> , 
+	TxBuffer:= TxBufferEL6021, 
+	RxBuffer:= RxBufferEL6021 );
+IF fbEL6021Ctrl.Error THEN
+	bEL6021CtrlError := TRUE;
+	eEL6021CtrlErrorID := fbEL6021Ctrl.ErrorID;
+END_IF]]></ST>
+    </Implementation>
+    <LineIds Name="Background">
+      <LineId Id="38" Count="13" />
+      <LineId Id="2" Count="0" />
+      <LineId Id="53" Count="13" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="94" Count="12" />
+      <LineId Id="93" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

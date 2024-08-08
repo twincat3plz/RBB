@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="ESC" Id="{ef45f950-70ba-4448-9518-507723000ff3}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM ESC
+VAR_INPUT
+	
+	sMotorspeed : STRING; // 'ESC1:value', 'ESC2:value'
+
+END_VAR
+VAR_OUTPUT
+	
+END_VAR
+VAR
+	fbescCommunication : FB_ESCcommunication;
+
+	bESCerror : BOOL;
+    ESCerrorID : ComError_t;
+	
+	currentcotrol : UINT :=0;
+	previouscotrol : UINT :=0;
+	timer: TON;
+	
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[fbescCommunication(senddata := sMotorspeed, TxBuffer:=TxBufferEL6021, RxBuffer:=RxBufferEL6021,
+bReceiveError => bESCerror, eReceiveErrorID =>ESCerrorID);
+
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="ESC">
+      <LineId Id="82" Count="0" />
+      <LineId Id="81" Count="0" />
+      <LineId Id="290" Count="0" />
+      <LineId Id="292" Count="0" />
+      <LineId Id="291" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,12 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <DUT Name="ST_FrameFifoEntrydata" Id="{95643b5c-a876-4e0f-a25d-03ff3292d74c}">
+    <Declaration><![CDATA[TYPE ST_FrameFifoEntrydata :
+STRUCT
+	stRemoteAddr 	: ST_SockAddr;
+	txdata : ARRAY[0..TXDATASIZE] OF BYTE;	
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

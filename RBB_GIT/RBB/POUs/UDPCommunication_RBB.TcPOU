@@ -1,0 +1,1266 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="UDPCommunication_RBB" Id="{7ff8845e-b438-4885-9de5-4d3e991541c3}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM UDPCommunication_RBB
+VAR	
+	bSendOnceToRemote	: BOOL := FALSE;(* Rising edge at this variable sends message to the remote host/port *)
+	
+	sSrvNetId			: T_AmsNetID 	:= '';(* TwinCAT TCP/IP server network address. Default: empty string. *)
+	sLocalHost			: T_IPv4Addr 	:= '192.168.10.30';(* Local address: String containing an (Ipv4) Internet Protocol dotted address. *) 
+	nLocalPort			: UDINT			:= 53635;(* Local address: IP port number *)//225
+	sRemoteHost			: T_IPv4Addr 	:= '192.168.1.10'; //'192.168.1.10';(* Remote address: String containing an (Ipv4) Internet Protocol dotted address. *)
+	nRemotePort			: UDINT 		:= 53634;(* Remote address: IP port number. *)//225
+	bEnable				: BOOL 			:= TRUE;(* TRUE => Enable/connect, FALSE => Disable/disconnect *)
+	bLog				: BOOL			:= TRUE;(* TRUE => Enable log message output, FALSE => Disable *)
+	
+	fbPeerToPeer		: FB_PeerToPeer := ( sPrefix := 'PeerToPeerB::' ) ;
+	fbPeerToPeer_1		: FB_PeerToPeer_1;
+	fbPeerToPeer_2		: FB_PeerToPeer_2;
+	
+   	fbTx				: FB_FrameFifo;
+	fbTx_1				: FB_FrameFifo_1;
+	fbTx_2				: FB_FrameFifo_2;
+		
+   	fbRx				: FB_FrameFiforx;
+	fbLog				: FB_LogFifo;
+	  
+	stSendTo			: ST_FrameFifoEntrydata;	
+	stSendTo_1			: ST_FrameFifoEntrydata_1;
+	stSendTo_2			: ST_FrameFifoEntrydata_2;
+	
+	stReceivedFrom		: ST_FrameFifoEntrydatarx;
+	
+	sLoggedMessage		: T_MaxString;
+
+   	fbCloseAll 			: FB_SocketCloseAll;
+   	bInitialize			: BOOL := TRUE;
+	
+	
+	senddataheader1 : ARRAY[0..11] OF BYTE;
+	senddata1 : ARRAY[0..47] OF BYTE;
+	
+	senddataheader2 : ARRAY[0..11] OF BYTE;
+	senddata2 : ARRAY[0..11] OF BYTE;
+	
+	senddataheader3 : ARRAY[0..11] OF BYTE;
+	senddata3 : ARRAY[0..5] OF BYTE;
+	
+	senddataheader4 : ARRAY[0..12] OF BYTE;
+	
+	senddataheader5 : ARRAY[0..11] OF BYTE;
+	senddata5 : ARRAY[0..3] OF BYTE;
+	
+	senddataheader6 : ARRAY[0..11] OF BYTE;
+	senddata6 : ARRAY[0..3] OF BYTE;
+	
+	senddataheader7 : ARRAY[0..11] OF BYTE;
+	senddata7 : ARRAY[0..3] OF BYTE;
+	
+	senddataheader8 : ARRAY[0..11] OF BYTE;
+	senddata8 : ARRAY[0..3] OF BYTE;
+		
+	i : INT;	
+	udpsendclock : TON;
+			
+	// made
+	
+	packetheader1 : ARRAY[0..11] OF BYTE;
+	packetdata1 : ARRAY[0..47] OF BYTE;	
+	
+	packetheader2 : ARRAY[0..11] OF BYTE;
+	packetdata2 : ARRAY[0..11] OF  BYTE;
+		
+	packetheader3 : ARRAY[0..11] OF BYTE;
+	packetdata3 : ARRAY[0..5] OF BYTE;
+		
+	packetheader4 : ARRAY[0..12] OF BYTE;
+	diagrst : BYTE;
+	
+	packetheader5 : ARRAY[0..11] OF BYTE;
+	packetdata5 : ARRAY[0..3] OF BYTE;
+	
+	packetheader6 : ARRAY[0..11] OF BYTE;
+	packetdata6 : ARRAY[0..3] OF BYTE;
+	
+	packetheader7 : ARRAY[0..11] OF BYTE;
+	packetdata7 : ARRAY[0..3] OF BYTE;
+	
+	packetheader8 : ARRAY[0..11] OF BYTE;
+	packetdata8 : ARRAY[0..3] OF BYTE;
+	
+
+	packetswitch1 : BOOL := FALSE;
+	packetswitch2 : BOOL := FALSE;
+	packetswitch3 : BOOL := FALSE; // Trigger 5678
+	
+	
+	packetswitch5 : BOOL;
+	packetswitch6 : BOOL;
+	packetswitch7 : BOOL;
+	packetswitch8 : BOOL;
+			
+	idvalue1 : UINT := 16#0001;
+	idvalue2 : UINT := 16#0002;
+	idvalue3 : UINT := 16#0003;
+	idvalue4 : UINT := 16#0004;
+	idvalue5 : UINT := 16#0101;
+	idvalue6 : UINT := 16#0102;
+	idvalue7 : UINT := 16#0103;
+	idvalue8 : UINT := 16#0104;
+		
+	id1 :  Union_UINT;
+	id2 :  Union_UINT;
+	id3 :  Union_UINT;
+	id4 :  Union_UINT;
+	id5 :  Union_UINT;
+	id6 :  Union_UINT;
+	id7 :  Union_UINT;
+	id8 :  Union_UINT;
+	
+	datalen1 : Union_UDINT;
+	datalen2 : Union_UDINT;
+	datalen3 : Union_UDINT;
+	datalen4 : Union_UDINT;
+	datalen5 : Union_UDINT;
+	datalen6 : Union_UDINT;
+	datalen7 : Union_UDINT;
+	datalen8 : Union_UDINT;
+	
+	txcounter1 : Union_UDINT;
+	txcounter2 : Union_UDINT;
+	txcounter3 : Union_UDINT;
+    txcounter4 : Union_UDINT;
+	txcounter5 : Union_UDINT;
+	txcounter6 : Union_UDINT;
+	txcounter7 : Union_UDINT;
+	txcounter8 : Union_UDINT;
+	
+	rxcounter1 : Union_UDINT;
+	rxcounter2 : Union_UDINT;
+	rxcounter3 : Union_UDINT;
+	rxcounter4 : Union_UDINT;
+		
+	counter1 : UDINT :=0;
+	counter2 : UDINT :=0;
+	counter3 : UDINT :=0;
+	counter4, counter5, counter6, counter7, counter8 : UDINT :=0; 	
+		
+	counterreset : BOOL := FALSE;
+	
+	mcsmission :Union_UINT; // rx	
+	mcstarget : Union_UINT; //rx
+	runningtime : UDINT ; 
+	runningtimetimer : TON;
+	targetVelocity : STRING; 	
+	errorcheckid : BYTE;
+	emgrcmd : BYTE;
+	
+	packetmcsmission :Union_UINT;    
+	packetmcstargetnum : Union_UINT;	
+	
+	packetmcstarget : Union_UINT;
+	packetwetpointlat : Union_LREAL;
+	packetwetpointlot : Union_LREAL;
+	packetwetpointspeed : Union_REAL;
+	
+	packetmcstarget1 : Union_UINT;
+	packetwetpointlat1 : Union_LREAL;
+	packetwetpointlot1 : Union_LREAL;
+	packetwetpointspeed1 : Union_UDINT;
+	
+	packetwetpointlat1str : STRING;
+	packetwetpointlot1str : STRING;
+
+	packetmcstarget2 : Union_UINT;
+	packetwetpointlat2 : Union_LREAL;	
+	packetwetpointlot2 : Union_LREAL;	
+	
+	packetwetpointspeed2 : Union_UDINT;
+	
+	packetwetpointlat2str : STRING;
+	packetwetpointlot2str : STRING;
+		
+	packetmcstarget3 : Union_UINT;
+	packetwetpointlat3 : Union_LREAL;	
+	packetwetpointlot3 : Union_LREAL;
+	
+	packetwetpointspeed3 : Union_UDINT;
+	
+	packetwetpointlat3str : STRING;
+	packetwetpointlot3str : STRING;
+	
+	packetmcstarget4 : Union_UINT;
+	packetwetpointlat4 : Union_LREAL;	
+	packetwetpointlot4 : Union_LREAL;	
+	packetwetpointspeed4 : Union_UDINT;
+	
+	packetmcstarget5,packetmcstarget6,packetmcstarget7,packetmcstarget8,
+    packetmcstarget9,packetmcstarget10,packetmcstarget11,packetmcstarget12,packetmcstarget13,
+    packetmcstarget14,packetmcstarget15,packetmcstarget16 : Union_UINT;
+	
+	packetwetpointlat5,packetwetpointlat6,packetwetpointlat7,packetwetpointlat8,
+    packetwetpointlat9,packetwetpointlat10,packetwetpointlat11,packetwetpointlat12,packetwetpointlat13,
+    packetwetpointlat14,packetwetpointlat15,packetwetpointlat16 : Union_LREAL;
+	
+	packetwetpointlot5,packetwetpointlot6,packetwetpointlot7,packetwetpointlot8,
+    packetwetpointlot9,packetwetpointlot10,packetwetpointlot11,packetwetpointlot12,packetwetpointlot13,
+    packetwetpointlot14,packetwetpointlot15,packetwetpointlot16 : Union_LREAL;	
+	
+	packetwetpointspeed5,packetwetpointspeed6,packetwetpointspeed7,packetwetpointspeed8,
+    packetwetpointspeed9,packetwetpointspeed10,packetwetpointspeed11,packetwetpointspeed12,packetwetpointspeed13,
+    packetwetpointspeed14,packetwetpointspeed15,packetwetpointspeed16 : Union_UDINT;
+
+	
+	packetahrsheading : Union_LREAL;
+	packetahrspitch : Union_LREAL;
+	packetahrsroll : Union_LREAL;
+	packetspeed : Union_LREAL;
+	packetlat : Union_LREAL;
+	packetlon : Union_LREAL;	
+	packetrunningtime : Union_UDINT;
+	packetheading : Union_UINT;
+	packetvelocity : Union_UINT;
+	packetrbbsoc : Union_UINT;
+	packetthrusterrightrpm : Union_UINT;
+	packetthrusterleftrpm : Union_UINT;	
+	packetmissioncmd : Union_UINT;
+
+	emergencydata : BYTE;		 
+	controlshutdown : BOOL;
+	
+END_VAR
+
+VAR_INPUT
+	Algorithmtestint : Union_UINT;
+	AlgorithmWaypointint : Union_UINT;
+	bSendOnceToRemote1	: BOOL := FALSE;(* Rising edge at this variable sends message to the remote host/port *)
+	bSendOnceToRemote2	: BOOL := FALSE;(* Rising edge at this variable sends message to the remote host/port *)
+	UDPstart : BOOL := TRUE;
+	UDPstart2 : BOOL := FALSE;
+	UDPstart3 : BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+	Algorithm_Sw : BOOL := FALSE;
+	Algorithmstop : BOOL :=TRUE;
+	Receiveaddress : BYTE;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+IF UDPstart THEN
+fbCloseAll( sSrvNetId := sSrvNetId, bExecute:= bInitialize );
+IF fbCloseAll.bBusy OR fbCloseAll.bError THEN
+	RETURN;
+END_IF
+bInitialize := FALSE;
+
+fbPeerToPeer(  sSrvNetId := sSrvNetId, 
+				fbTx := fbTx, 
+				fbRx := fbRx,			
+				fbLog := fbLog, 
+				sLocalHost := sLocalHost, 
+				nLocalPort := nLocalPort, 
+				bEnable := bEnable, bLog := bLog );
+																
+IF fbPeerToPeer.bCreated  THEN 
+	
+// Receive Control
+Receiveaddress := stReceivedFrom.rxdata[2]; 
+
+IF Receiveaddress = 16#01 THEN 
+	
+   mcsmission.packed[0] := stReceivedFrom.rxdata[12]; 
+   mcsmission.packed[1] := stReceivedFrom.rxdata[13];
+   	  
+END_IF 
+
+IF Receiveaddress = 16#02 THEN 
+		
+	packetmcstargetnum.packed[0] := stReceivedFrom.rxdata[12]; //12
+    packetmcstargetnum.packed[1] := stReceivedFrom.rxdata[13];
+	
+	packetmcstarget1.packed[0] :=  stReceivedFrom.rxdata[14];
+	packetmcstarget1.packed[1] :=  stReceivedFrom.rxdata[15];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat1.packed[i] :=  stReceivedFrom.rxdata[i+16];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot1.packed[i] :=  stReceivedFrom.rxdata[i+24];
+	END_FOR	
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed1.packed[i] :=  stReceivedFrom.rxdata[i+32];
+	END_FOR
+	
+	packetmcstarget2.packed[0] :=  stReceivedFrom.rxdata[36];
+	packetmcstarget2.packed[1] :=  stReceivedFrom.rxdata[37];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat2.packed[i] :=  stReceivedFrom.rxdata[i+38];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot2.packed[i] :=  stReceivedFrom.rxdata[i+46];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed2.packed[i] :=  stReceivedFrom.rxdata[i+54];
+	END_FOR
+		
+	packetmcstarget3.packed[0] :=  stReceivedFrom.rxdata[58];
+	packetmcstarget3.packed[1] :=  stReceivedFrom.rxdata[59];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat3.packed[i] := stReceivedFrom.rxdata[i+60];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot3.packed[i] :=  stReceivedFrom.rxdata[i+68];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed3.packed[i] :=  stReceivedFrom.rxdata[i+76];
+	END_FOR
+	
+	packetmcstarget4.packed[0] :=  stReceivedFrom.rxdata[80];
+	packetmcstarget4.packed[1] := stReceivedFrom.rxdata[81];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat4.packed[i] :=  stReceivedFrom.rxdata[i+82];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot4.packed[i] :=  stReceivedFrom.rxdata[i+90];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed4.packed[i] :=  stReceivedFrom.rxdata[i+98];
+	END_FOR	
+		
+	packetmcstarget5.packed[0] :=  stReceivedFrom.rxdata[102];
+	packetmcstarget5.packed[1] := stReceivedFrom.rxdata[103];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat5.packed[i] :=  stReceivedFrom.rxdata[i+104];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot5.packed[i] :=  stReceivedFrom.rxdata[i+112];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed5.packed[i] :=  stReceivedFrom.rxdata[i+120];
+	END_FOR	
+	
+	packetmcstarget6.packed[0] :=  stReceivedFrom.rxdata[124];
+	packetmcstarget6.packed[1] := stReceivedFrom.rxdata[125];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat6.packed[i] :=  stReceivedFrom.rxdata[i+126];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot6.packed[i] :=  stReceivedFrom.rxdata[i+134];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed6.packed[i] :=  stReceivedFrom.rxdata[i+142];
+	END_FOR	
+	
+	packetmcstarget7.packed[0] :=  stReceivedFrom.rxdata[146];
+	packetmcstarget7.packed[1] := stReceivedFrom.rxdata[147];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat7.packed[i] :=  stReceivedFrom.rxdata[i+148];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot7.packed[i] :=  stReceivedFrom.rxdata[i+156];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed7.packed[i] :=  stReceivedFrom.rxdata[i+164];
+	END_FOR	
+	
+	packetmcstarget8.packed[0] :=  stReceivedFrom.rxdata[168];
+	packetmcstarget8.packed[1] := stReceivedFrom.rxdata[169];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat8.packed[i] :=  stReceivedFrom.rxdata[i+170];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot8.packed[i] :=  stReceivedFrom.rxdata[i+178];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed8.packed[i] :=  stReceivedFrom.rxdata[i+186];
+	END_FOR	
+	
+	packetmcstarget9.packed[0] :=  stReceivedFrom.rxdata[190];
+	packetmcstarget9.packed[1] := stReceivedFrom.rxdata[191];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat9.packed[i] :=  stReceivedFrom.rxdata[i+192];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot9.packed[i] :=  stReceivedFrom.rxdata[i+200];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed9.packed[i] :=  stReceivedFrom.rxdata[i+208];
+	END_FOR	
+	
+	packetmcstarget10.packed[0] :=  stReceivedFrom.rxdata[212];
+	packetmcstarget10.packed[1] := stReceivedFrom.rxdata[213];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat10.packed[i] :=  stReceivedFrom.rxdata[i+214];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot10.packed[i] :=  stReceivedFrom.rxdata[i+222];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed10.packed[i] :=  stReceivedFrom.rxdata[i+230];
+	END_FOR	
+	
+	packetmcstarget11.packed[0] :=  stReceivedFrom.rxdata[234];
+	packetmcstarget11.packed[1] := stReceivedFrom.rxdata[235];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat11.packed[i] :=  stReceivedFrom.rxdata[i+236];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot11.packed[i] :=  stReceivedFrom.rxdata[i+244];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed11.packed[i] :=  stReceivedFrom.rxdata[i+252];
+	END_FOR	
+	
+	packetmcstarget12.packed[0] :=  stReceivedFrom.rxdata[256];
+	packetmcstarget12.packed[1] := stReceivedFrom.rxdata[257];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat12.packed[i] :=  stReceivedFrom.rxdata[i+258];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot12.packed[i] :=  stReceivedFrom.rxdata[i+266];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed12.packed[i] :=  stReceivedFrom.rxdata[i+274];
+	END_FOR	
+	
+	packetmcstarget13.packed[0] :=  stReceivedFrom.rxdata[278];
+	packetmcstarget13.packed[1] := stReceivedFrom.rxdata[279];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat13.packed[i] :=  stReceivedFrom.rxdata[i+280];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot13.packed[i] :=  stReceivedFrom.rxdata[i+288];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed13.packed[i] :=  stReceivedFrom.rxdata[i+296];
+	END_FOR	
+	
+	packetmcstarget14.packed[0] :=  stReceivedFrom.rxdata[300];
+	packetmcstarget14.packed[1] := stReceivedFrom.rxdata[301];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat14.packed[i] :=  stReceivedFrom.rxdata[i+302];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot14.packed[i] :=  stReceivedFrom.rxdata[i+310];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed14.packed[i] :=  stReceivedFrom.rxdata[i+318];
+	END_FOR	
+	
+	packetmcstarget15.packed[0] :=  stReceivedFrom.rxdata[322];
+	packetmcstarget15.packed[1] := stReceivedFrom.rxdata[323];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat15.packed[i] :=  stReceivedFrom.rxdata[i+324];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot15.packed[i] :=  stReceivedFrom.rxdata[i+332];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed15.packed[i] :=  stReceivedFrom.rxdata[i+340];
+	END_FOR	
+	
+	packetmcstarget16.packed[0] :=  stReceivedFrom.rxdata[344];
+	packetmcstarget16.packed[1] := stReceivedFrom.rxdata[345];
+	
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlat16.packed[i] :=  stReceivedFrom.rxdata[i+346];
+	END_FOR
+	FOR i:=0 TO 7 BY 1 DO
+	packetwetpointlot16.packed[i] :=  stReceivedFrom.rxdata[i+354];
+	END_FOR
+	FOR i:=0 TO 3 BY 1 DO
+	packetwetpointspeed16.packed[i] :=  stReceivedFrom.rxdata[i+362];
+	END_FOR	
+	 
+END_IF 
+(*IF Receiveaddress = 16#03 THEN 
+	
+END_IF*)
+
+IF Receiveaddress = 16#04THEN 
+	emergencydata := stReceivedFrom.rxdata[12];  
+END_IF 
+
+
+// UDP_1 1HZ trigger 
+udpsendclock(IN:=TRUE, PT:=T#1S); //T#1S
+
+ IF udpsendclock.Q THEN
+    bSendOnceToRemote := NOT bSendOnceToRemote;
+    udpsendclock(IN:=FALSE);
+ END_IF 
+
+// UDP_1 Send Packet Control
+
+IF bSendOnceToRemote THEN
+     bSendOnceToRemote 	         := TRUE;		
+	 stSendTo.stRemoteAddr.sAddr := sRemoteHost;	
+	 stSendTo.stRemoteAddr.nPort := nRemotePort;
+
+IF counterreset THEN
+	counter1 :=0;
+	counter2 :=0;
+	counter3 :=0;
+ END_IF 
+
+counter1 := counter1+1;
+counter2 := counter2+1;
+counter3 := counter3+1;
+
+id1.value := idvalue1;
+id2.value := idvalue2;
+id3.value := idvalue3;
+
+datalen1.value := SIZEOF(packetdata1);
+datalen2.value := SIZEOF(packetdata2);
+datalen3.value := SIZEOF(packetdata3);
+
+txcounter1.value := counter1;
+txcounter2.value := counter2;
+txcounter3.value := counter3;
+
+packetwetpointspeed.value := 1.082;
+targetVelocity := REAL_TO_STRING(packetwetpointspeed.value); // target
+
+packetahrsheading.value :=STRING_TO_LREAL(MAIN.HMIYAW);
+packetahrspitch.value := STRING_TO_LREAL(MAIN.HMIPITCH);
+packetahrsroll.value := STRING_TO_LREAL(MAIN.HMIROLL);
+packetlat.value := STRING_TO_LREAL(MAIN.HMILatitude);
+packetlon.value := STRING_TO_LREAL(MAIN.HMILongitude);
+packetspeed.value := STRING_TO_LREAL(MAIN.HMISpeed);
+
+packetrunningtime.value := runningtime;
+packetheading.value := LREAL_TO_UINT(MAIN.azimuth);
+packetvelocity.value := STRING_TO_UINT(targetvelocity);
+
+packetrbbsoc.value := STRING_TO_UINT(MAIN.HMIbatS);
+packetthrusterrightrpm.value := MAIN.thrusterrightrpm;
+packetthrusterleftrpm.value := MAIN.thrusterleftrpm;
+packetmcstarget.value := MAIN.waypointIndex;
+
+ IF mcsmission.value = 1 THEN // rx
+	  packetmcsmission.value :=1; // tx
+	  Algorithm_Sw := TRUE;
+	  runningtimetimer(IN:=TRUE,PT:=T#1S);
+         IF runningtimetimer.Q THEN
+	        runningtime := runningtime+1;
+	        runningtimetimer(IN:=FALSE);
+         END_IF
+      ELSIF mcsmission.value = 2 THEN
+		packetmcsmission.value :=0;
+		runningtime :=0;
+		Algorithmstop := FALSE;
+	  ELSIF mcsmission.value = 3 THEN
+		packetmcsmission.value :=2;  
+		Algorithm_Sw := FALSE;
+		runningtimetimer(IN:=TRUE,PT:=T#1S);
+         IF runningtimetimer.Q THEN
+	        runningtime := runningtime+1;
+	        runningtimetimer(IN:=FALSE);
+         END_IF
+	   ELSIF mcsmission.value = 4 THEN
+		   controlshutdown := TRUE;
+END_IF 
+
+IF emergencydata = 16#02 THEN
+   packetmcsmission.value :=0;
+   runningtime :=0;
+   Algorithmstop := FALSE;
+   ELSIF emergencydata = 16#01 THEN
+	    Algorithmstop := TRUE;
+		packetmcsmission.value :=1;
+		runningtimetimer(IN:=TRUE,PT:=T#1S);
+         IF runningtimetimer.Q THEN
+	        runningtime := runningtime+1;
+	        runningtimetimer(IN:=FALSE);
+         END_IF
+END_IF
+
+
+// UDP_1 packet1 
+
+packetheader1[0] := 16#30;
+packetheader1[1] := 16#10;
+
+packetheader1[2] := id1.packed[0];
+packetheader1[3] := id1.packed[1];
+FOR i:=0 TO 3 BY 1 DO
+packetheader1[i+4] := datalen1.packed[i];
+END_FOR
+FOR i:=0 TO 3 BY 1 DO
+packetheader1[i+8] := txcounter1.packed[i];
+END_FOR
+FOR i:=0 TO 7 BY 1 DO
+packetdata1[i] := packetahrsroll.Packed[i];	
+END_FOR
+FOR i:=0 TO 7 BY 1 DO
+packetdata1[i+8] := packetahrspitch.Packed[i];	
+END_FOR
+FOR i:=0 TO 7 BY 1 DO
+packetdata1[i+16] := packetahrsheading.Packed[i];	
+END_FOR
+FOR i:=0 TO 7 BY 1 DO
+packetdata1[i+24] := packetspeed.Packed[i];	
+END_FOR
+FOR i:=0 TO 7 BY 1 DO
+packetdata1[i+32] := packetlat.Packed[i];	
+END_FOR
+FOR i:=0 TO 7 BY 1 DO
+packetdata1[i+40] := packetlon.Packed[i];	
+END_FOR
+
+
+// UDP_1 packet2
+
+packetheader2[0] := 16#30;
+packetheader2[1] := 16#10;
+
+packetheader2[2] := id2.packed[0];
+packetheader2[3] := id2.packed[1];
+FOR i:=0 TO 3 BY 1 DO
+packetheader2[i+4] := datalen2.packed[i];
+END_FOR
+FOR i:=0 TO 3 BY 1 DO
+packetheader2[i+8] := txcounter2.packed[i];
+END_FOR
+
+packetdata2[0] := packetmcsmission.packed[0];
+packetdata2[1] := packetmcsmission.packed[1];
+
+packetdata2[2] :=  packetmcstarget.packed[0];
+packetdata2[3] :=  packetmcstarget.packed[1];
+
+packetdata2[4] := packetrunningtime.packed[0];
+packetdata2[5] := packetrunningtime.packed[1];
+packetdata2[6] := packetrunningtime.packed[2];
+packetdata2[7] := packetrunningtime.packed[3];
+
+packetdata2[8] := packetheading.packed[0];  // GPS 
+packetdata2[9] := packetheading.packed[1];
+
+packetdata2[10] := packetvelocity.packed[0]; // 2KNOT
+packetdata2[11] := packetvelocity.packed[1];
+
+// UDP_1 packet3
+
+packetheader3[0] := 16#30;
+
+packetheader3[1] := 16#10;
+
+packetheader3[2] := id3.packed[0];
+packetheader3[3] := id3.packed[1];
+FOR i:=0 TO 3 BY 1 DO
+packetheader3[i+4] := datalen3.packed[i];
+END_FOR
+FOR i:=0 TO 3 BY 1 DO
+packetheader3[i+8] := txcounter3.packed[i];
+END_FOR
+
+packetdata3[0] := packetrbbsoc.packed[0];
+packetdata3[1] := packetrbbsoc.packed[1];
+
+packetdata3[2] := packetthrusterrightrpm.packed[0];
+packetdata3[3] := packetthrusterrightrpm.packed[1];
+
+packetdata3[4] := packetthrusterleftrpm.packed[0];
+packetdata3[5] := packetthrusterleftrpm.packed[1];
+
+// UDP_1 Packet1 Send	
+        FOR i:=0 TO 11 BY 1 DO
+			senddataheader1[i] := packetheader1[i];
+		END_FOR
+		FOR i:=0 TO 47 BY 1 DO
+			senddata1[i] := packetdata1[i];
+		END_FOR
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO.txdata[i] := senddataheader1[i];
+		END_FOR
+		FOR i:=0 TO 47 BY 1 DO
+			stSendTO.txdata[i+12] := senddata1[i];
+		END_FOR 
+// UDP_1 Packet2 Send			
+		FOR i:=0 TO 11 BY 1 DO
+			senddataheader2[i] := packetheader2[i];
+		END_FOR
+		FOR i:=0 TO 11 BY 1 DO
+			senddata2[i] := packetdata2[i];
+		END_FOR		
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO.txdata[i+60] := senddataheader2[i];
+		END_FOR
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO.txdata[i+72] := senddata2[i];
+		END_FOR		
+// UDP_1 Packet3 Send	
+		FOR i:=0 TO 11 BY 1 DO
+			senddataheader3[i] := packetheader3[i];
+		END_FOR
+		FOR i:=0 TO 5 BY 1 DO
+			senddata3[i] := packetdata3[i];
+		END_FOR		
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO.txdata[i+84] := senddataheader3[i];
+		END_FOR
+		FOR i:=0 TO 5 BY 1 DO
+			stSendTO.txdata[i+96] := senddata3[i];
+		END_FOR  
+	 
+	 fbTx.AddTail( stPut := stSendTo); // UDP_1 send
+	IF NOT fbTx.bOk THEN				
+			fbLog.Error( sMessage := 'FB_FrameFifo(sender)', nErrID := PLCPRJ_ERROR_SENDFIFO_OVERFLOW );
+		END_IF		
+END_IF
+
+	IF bSendOnceToRemote THEN
+	bSendOnceToRemote := FALSE;
+	END_IF  
+		
+END_IF
+
+REPEAT
+	fbRx.RemoveHead();
+	IF fbRx.bOk THEN
+	stReceivedFrom := fbRx.stGet;		
+	END_IF
+UNTIL NOT fbRx.bOk
+END_REPEAT
+
+REPEAT
+	fbLog.Remove( );
+	IF fbLog.bOk THEN
+		sLoggedMessage := fbLog.sGet;
+	END_IF
+UNTIL NOT fbLog.bOk
+END_REPEAT
+ELSE 
+	
+fbPeerToPeer(   sSrvNetId := sSrvNetId, 
+				fbTx := fbTx, 
+				fbRx := fbRx,			
+				fbLog := fbLog, 
+				sLocalHost := sLocalHost, 
+				nLocalPort := nLocalPort, 
+				bEnable := FALSE, bLog := bLog );
+END_IF
+
+// Namespace : UDP_2
+
+IF UDPstart2 THEN	
+fbCloseAll( sSrvNetId := sSrvNetId, bExecute:= bInitialize );
+IF fbCloseAll.bBusy OR fbCloseAll.bError THEN
+	RETURN;
+END_IF
+bInitialize := FALSE;
+
+fbPeerToPeer_1(  sSrvNetId := sSrvNetId, 
+				fbTx := fbTx_1, 
+				fbRx := fbRx,			
+				fbLog := fbLog, 
+				sLocalHost := sLocalHost, 
+				nLocalPort := nLocalPort, 
+				bEnable := bEnable, bLog := bLog );
+
+IF fbPeerToPeer_1.bCreated THEN 
+
+ReceiveAddress := stReceivedFrom.rxdata[2]; 	
+// UDP_2 Send Packet Control
+
+IF NOT bSendOnceToRemote1 THEN	
+	 stSendTo_1.stRemoteAddr.sAddr := sRemoteHost;	
+	 stSendTo_1.stRemoteAddr.nPort := nRemotePort;
+
+IF counterreset THEN
+	counter4 :=0;
+ END_IF 
+
+counter4 := counter4+1;
+
+id4.value := idvalue4;
+
+datalen4.value := SIZEOF(diagrst);
+
+txcounter4.value := counter4;
+
+packetahrsheading.value :=STRING_TO_LREAL(MAIN.HMIYAW);
+packetlat.value := STRING_TO_LREAL(MAIN.HMILatitude);
+packetlon.value := STRING_TO_LREAL(MAIN.HMILongitude);
+
+IF packetahrsheading.value =0 AND packetlat.value =0 AND packetlon.value=0 THEN
+	diagrst := 0;
+	ELSE
+		diagrst := 16#01;
+	END_IF
+	
+// UDP_2 packet4 
+
+packetheader4[0] := 16#30;
+
+packetheader4[1] := 16#10;
+
+packetheader4[2] := id4.packed[0];
+packetheader4[3] := id4.packed[1];
+
+packetheader4[4] := datalen4.packed[0];
+packetheader4[5] := datalen4.packed[1];
+packetheader4[6] := datalen4.packed[2];
+packetheader4[7] := datalen4.packed[3];
+
+packetheader4[8] := txcounter4.packed[0];
+packetheader4[9] := txcounter4.packed[1];
+packetheader4[10] := txcounter4.packed[2];
+packetheader4[11] := txcounter4.packed[3];
+
+packetheader4[12] := diagrst;
+
+
+// UDP_2 Packet4 Send	
+    	FOR i:=0 TO 12 BY 1 DO
+			senddataheader4[i] := packetheader4[i];
+		END_FOR		
+		FOR i:=0 TO 12 BY 1 DO
+			stSendTO_1.txdata[i] := senddataheader4[i];
+		END_FOR
+	 
+	 fbTx_1.AddTail( stPut := stSendTo_1);// UDP_2 send
+	IF NOT fbTx_1.bOk THEN				
+			fbLog.Error( sMessage := 'FB_FrameFifo(sender)', nErrID := PLCPRJ_ERROR_SENDFIFO_OVERFLOW );
+		END_IF		
+END_IF
+
+	IF NOT bSendOnceToRemote1 THEN
+	bSendOnceToRemote1 := TRUE;
+	END_IF  
+		
+END_IF
+
+REPEAT
+	fbRx.RemoveHead();
+	IF fbRx.bOk THEN
+	stReceivedFrom := fbRx.stGet;		
+	END_IF
+UNTIL NOT fbRx.bOk
+END_REPEAT
+
+REPEAT
+	fbLog.Remove( );
+	IF fbLog.bOk THEN
+		sLoggedMessage := fbLog.sGet;
+	END_IF
+UNTIL NOT fbLog.bOk
+END_REPEAT
+
+ELSE 
+
+fbPeerToPeer_1( sSrvNetId := sSrvNetId, 
+				fbTx := fbTx_1, 
+				fbRx := fbRx,			
+				fbLog := fbLog, 
+				sLocalHost := sLocalHost, 
+				nLocalPort := nLocalPort, 
+				bEnable := FALSE, bLog := bLog );
+
+
+END_IF
+
+IF UDPstart3 THEN
+	
+fbCloseAll( sSrvNetId := sSrvNetId, bExecute:= bInitialize );
+IF fbCloseAll.bBusy OR fbCloseAll.bError THEN
+	RETURN;
+END_IF
+bInitialize := FALSE;
+
+fbPeerToPeer_2(   sSrvNetId := sSrvNetId, 
+				fbTx := fbTx_2, 
+				fbRx := fbRx,			
+				fbLog := fbLog, 
+				sLocalHost := sLocalHost, 
+				nLocalPort := nLocalPort, 
+				bEnable := bEnable, bLog := bLog );
+
+IF fbPeerToPeer_2.bCreated THEN 
+
+// UDP_3 Receive Control
+ 
+Receiveaddress := stReceivedFrom.rxdata[2]; 
+
+IF Receiveaddress = 16#01 THEN
+   packetswitch5  := TRUE;	 
+  rxcounter1.packed[0] := stReceivedFrom.rxdata[8];
+  rxcounter1.packed[1] := stReceivedFrom.rxdata[9];
+  rxcounter1.packed[2] := stReceivedFrom.rxdata[10];
+  rxcounter1.packed[3] := stReceivedFrom.rxdata[11];
+ELSE  packetswitch5  := FALSE;	
+END_IF 
+
+
+IF Receiveaddress = 16#02 THEN
+	packetswitch6  := TRUE;		
+	rxcounter2.packed[0] := stReceivedFrom.rxdata[8];
+    rxcounter2.packed[1] := stReceivedFrom.rxdata[9];
+    rxcounter2.packed[2] := stReceivedFrom.rxdata[10];
+    rxcounter2.packed[3] := stReceivedFrom.rxdata[11];
+ELSE  packetswitch6  := FALSE;	
+END_IF
+
+IF Receiveaddress = 16#03 THEN
+    packetswitch7  := TRUE;
+	rxcounter3.packed[0] := stReceivedFrom.rxdata[8];
+    rxcounter3.packed[1] := stReceivedFrom.rxdata[9];
+    rxcounter3.packed[2] := stReceivedFrom.rxdata[10];
+    rxcounter3.packed[3] := stReceivedFrom.rxdata[11];
+ELSE  packetswitch7  := FALSE;	
+END_IF
+
+IF Receiveaddress = 16#04 THEN
+    packetswitch8  := TRUE;
+	rxcounter4.packed[0] := stReceivedFrom.rxdata[8];
+    rxcounter4.packed[1] := stReceivedFrom.rxdata[9];
+    rxcounter4.packed[2] := stReceivedFrom.rxdata[10];
+    rxcounter4.packed[3] := stReceivedFrom.rxdata[11];
+ELSE  packetswitch8  := FALSE;	
+END_IF
+
+// UDP_3 Send Packet Control
+
+IF NOT bSendOnceToRemote2 THEN	
+	 stSendTo_2.stRemoteAddr.sAddr := sRemoteHost;	
+	 stSendTo_2.stRemoteAddr.nPort := nRemotePort;
+	 
+IF counterreset THEN
+	counter5 :=0;
+    counter6 :=0;
+    counter7 :=0;
+    counter8 :=0;
+ END_IF 
+
+counter5 := counter5+1;
+counter6 := counter6+1;
+counter7 := counter7+1;
+counter8 := counter8+1;
+
+id5.value := idvalue5;
+id6.value := idvalue6;
+id7.value := idvalue7;
+id8.value := idvalue8;
+
+datalen5.value := SIZEOF(packetdata5);
+datalen6.value := SIZEOF(packetdata6);
+datalen7.value := SIZEOF(packetdata7);
+datalen8.value := SIZEOF(packetdata8);
+
+txcounter5.value := counter5;
+txcounter6.value := counter6;
+txcounter7.value := counter7;
+txcounter8.value := counter8;
+
+// UDP_3 packet5
+
+packetheader5[0] := 16#30;
+
+packetheader5[1] := 16#10;
+
+packetheader5[2] := id5.packed[0];
+packetheader5[3] := id5.packed[1];
+
+packetheader5[4] := datalen5.packed[0];
+packetheader5[5] := datalen5.packed[1];
+packetheader5[6] := datalen5.packed[2];
+packetheader5[7] := datalen5.packed[3];
+
+packetheader5[8] := txcounter5.packed[0];
+packetheader5[9] := txcounter5.packed[1];
+packetheader5[10] := txcounter5.packed[2];
+packetheader5[11] := txcounter5.packed[3];
+
+packetdata5[0] := rxcounter1.packed[0];
+packetdata5[1] := rxcounter1.packed[1];
+packetdata5[2] := rxcounter1.packed[2];
+packetdata5[3] := rxcounter1.packed[3];
+
+// UDP_3 packet6
+
+packetheader6[0] := 16#30;
+
+packetheader6[1] := 16#10;
+
+packetheader6[2] := id6.packed[0];
+packetheader6[3] := id6.packed[1];
+
+packetheader6[4] := datalen6.packed[0];
+packetheader6[5] := datalen6.packed[1];
+packetheader6[6] := datalen6.packed[2];
+packetheader6[7] := datalen6.packed[3];
+
+packetheader6[8] := txcounter6.packed[0];
+packetheader6[9] := txcounter6.packed[1];
+packetheader6[10] := txcounter6.packed[2];
+packetheader6[11] := txcounter6.packed[3];
+
+packetdata6[0] := rxcounter2.packed[0];
+packetdata6[1] := rxcounter2.packed[1];
+packetdata6[2] := rxcounter2.packed[2];
+packetdata6[3] := rxcounter2.packed[3];
+
+// UDP_3 packet7
+
+packetheader7[0] := 16#30;
+
+packetheader7[1] := 16#10;
+
+packetheader7[2] := id7.packed[0];
+packetheader7[3] := id7.packed[1];
+
+packetheader7[4] := datalen7.packed[0];
+packetheader7[5] := datalen7.packed[1];
+packetheader7[6] := datalen7.packed[2];
+packetheader7[7] := datalen7.packed[3];
+
+packetheader7[8] := txcounter7.packed[0];
+packetheader7[9] := txcounter7.packed[1];
+packetheader7[10] := txcounter7.packed[2];
+packetheader7[11] := txcounter7.packed[3];
+
+packetdata7[0] := rxcounter3.packed[0];
+packetdata7[1] := rxcounter3.packed[1];
+packetdata7[2] := rxcounter3.packed[2];
+packetdata7[3] := rxcounter3.packed[3];
+
+
+// UDP_3 packet8
+
+packetheader8[0] := 16#30;
+
+packetheader8[1] := 16#10;
+
+packetheader8[2] := id8.packed[0];
+packetheader8[3] := id8.packed[1];
+
+packetheader8[4] := datalen8.packed[0];
+packetheader8[5] := datalen8.packed[1];
+packetheader8[6] := datalen8.packed[2];
+packetheader8[7] := datalen8.packed[3];
+
+packetheader8[8] := txcounter8.packed[0];
+packetheader8[9] := txcounter8.packed[1];
+packetheader8[10] := txcounter8.packed[2];
+packetheader8[11] := txcounter8.packed[3];
+
+packetdata8[0] := rxcounter4.packed[0];
+packetdata8[1] := rxcounter4.packed[1];
+packetdata8[2] := rxcounter4.packed[2];
+packetdata8[3] := rxcounter4.packed[3];
+
+// UDP_3 Packet5 Send	
+IF packetswitch5 THEN
+        FOR i:=0 TO 11 BY 1 DO
+			senddataheader5[i] := packetheader5[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			senddata5[i] := packetdata5[i];
+		END_FOR		
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO_2.txdata[i] := senddataheader5[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			stSendTO_2.txdata[i+12] := senddata5[i];
+		END_FOR
+
+ END_IF
+ 
+// UDP_3 Packet6 Send
+ IF packetswitch6 THEN
+        FOR i:=0 TO 11 BY 1 DO
+			senddataheader6[i] := packetheader6[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			senddata6[i] := packetdata6[i];
+		END_FOR		
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO_2.txdata[i] := senddataheader6[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			stSendTO_2.txdata[i+12] := senddata6[i];
+		END_FOR		
+
+ END_IF
+ 
+// UDP_3 Packet7 Send
+ IF packetswitch7 THEN
+        FOR i:=0 TO 11 BY 1 DO
+			senddataheader7[i] := packetheader7[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			senddata7[i] := packetdata7[i];
+		END_FOR		
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO_2.txdata[i] := senddataheader7[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			stSendTO_2.txdata[i+12] := senddata7[i];
+		END_FOR	
+
+ END_IF
+ 
+// UDP_3 Packet8 Send
+ IF packetswitch8 THEN
+        FOR i:=0 TO 11 BY 1 DO
+			senddataheader8[i] := packetheader8[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			senddata8[i] := packetdata8[i];
+		END_FOR		
+		FOR i:=0 TO 11 BY 1 DO
+			stSendTO_2.txdata[i] := senddataheader8[i];
+		END_FOR
+		FOR i:=0 TO 3 BY 1 DO
+			stSendTO_2.txdata[i+12] := senddata8[i];
+		END_FOR	
+
+ END_IF		
+
+ 
+	fbTx_2.AddTail( stPut := stSendTo_2); // UDP_3 send
+	IF NOT fbTx_2.bOk THEN				
+			fbLog.Error( sMessage := 'FB_FrameFifo(sender)', nErrID := PLCPRJ_ERROR_SENDFIFO_OVERFLOW );
+		END_IF		
+END_IF
+	IF NOT bSendOnceToRemote2 THEN
+	bSendOnceToRemote2 := TRUE;
+	END_IF  
+	
+END_IF
+
+REPEAT
+	fbRx.RemoveHead();
+	IF fbRx.bOk THEN
+	stReceivedFrom := fbRx.stGet;		
+	END_IF
+UNTIL NOT fbRx.bOk
+END_REPEAT
+
+REPEAT
+	fbLog.Remove( );
+	IF fbLog.bOk THEN
+		sLoggedMessage := fbLog.sGet;
+	END_IF
+UNTIL NOT fbLog.bOk
+END_REPEAT
+
+
+ELSE	
+	fbPeerToPeer_2( sSrvNetId := sSrvNetId, 
+				fbTx := fbTx_2, 
+				fbRx := fbRx,			
+				fbLog := fbLog, 
+				sLocalHost := sLocalHost, 
+				nLocalPort := nLocalPort, 
+				bEnable := FALSE, bLog := bLog );
+END_IF
+ ]]></ST>
+    </Implementation>
+    <LineIds Name="UDPCommunication_RBB">
+      <LineId Id="2759" Count="0" />
+      <LineId Id="289" Count="16" />
+      <LineId Id="307" Count="11" />
+      <LineId Id="323" Count="14" />
+      <LineId Id="341" Count="13" />
+      <LineId Id="358" Count="12" />
+      <LineId Id="374" Count="12" />
+      <LineId Id="1847" Count="10" />
+      <LineId Id="1827" Count="0" />
+      <LineId Id="1538" Count="0" />
+      <LineId Id="1859" Count="10" />
+      <LineId Id="1858" Count="0" />
+      <LineId Id="1870" Count="0" />
+      <LineId Id="1872" Count="10" />
+      <LineId Id="1871" Count="0" />
+      <LineId Id="1883" Count="0" />
+      <LineId Id="1896" Count="10" />
+      <LineId Id="1884" Count="0" />
+      <LineId Id="1907" Count="0" />
+      <LineId Id="1909" Count="10" />
+      <LineId Id="1908" Count="0" />
+      <LineId Id="1920" Count="0" />
+      <LineId Id="1922" Count="10" />
+      <LineId Id="1921" Count="0" />
+      <LineId Id="1933" Count="0" />
+      <LineId Id="1935" Count="12" />
+      <LineId Id="1949" Count="10" />
+      <LineId Id="1948" Count="0" />
+      <LineId Id="1934" Count="0" />
+      <LineId Id="1961" Count="11" />
+      <LineId Id="1960" Count="0" />
+      <LineId Id="1974" Count="10" />
+      <LineId Id="1973" Count="0" />
+      <LineId Id="1985" Count="0" />
+      <LineId Id="1987" Count="10" />
+      <LineId Id="1986" Count="0" />
+      <LineId Id="1998" Count="0" />
+      <LineId Id="2000" Count="10" />
+      <LineId Id="1999" Count="0" />
+      <LineId Id="1539" Count="0" />
+      <LineId Id="390" Count="1" />
+      <LineId Id="401" Count="0" />
+      <LineId Id="406" Count="0" />
+      <LineId Id="408" Count="3" />
+      <LineId Id="413" Count="40" />
+      <LineId Id="460" Count="27" />
+      <LineId Id="489" Count="8" />
+      <LineId Id="503" Count="6" />
+      <LineId Id="511" Count="1" />
+      <LineId Id="2314" Count="1" />
+      <LineId Id="2317" Count="3" />
+      <LineId Id="2316" Count="0" />
+      <LineId Id="522" Count="5" />
+      <LineId Id="529" Count="32" />
+      <LineId Id="563" Count="12" />
+      <LineId Id="578" Count="77" />
+      <LineId Id="2638" Count="0" />
+      <LineId Id="667" Count="26" />
+      <LineId Id="830" Count="1" />
+      <LineId Id="833" Count="5" />
+      <LineId Id="832" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="697" Count="3" />
+      <LineId Id="702" Count="19" />
+      <LineId Id="723" Count="59" />
+      <LineId Id="3062" Count="0" />
+      <LineId Id="783" Count="1" />
+      <LineId Id="786" Count="18" />
+      <LineId Id="839" Count="0" />
+      <LineId Id="805" Count="0" />
+      <LineId Id="812" Count="8" />
+      <LineId Id="828" Count="1" />
+      <LineId Id="841" Count="23" />
+      <LineId Id="2642" Count="0" />
+      <LineId Id="869" Count="3" />
+      <LineId Id="2656" Count="0" />
+      <LineId Id="2640" Count="1" />
+      <LineId Id="887" Count="2" />
+      <LineId Id="986" Count="23" />
+      <LineId Id="1111" Count="3" />
+      <LineId Id="1116" Count="28" />
+      <LineId Id="2658" Count="95" />
+      <LineId Id="2657" Count="0" />
+      <LineId Id="1145" Count="78" />
+      <LineId Id="1225" Count="26" />
+      <LineId Id="840" Count="0" />
+      <LineId Id="696" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

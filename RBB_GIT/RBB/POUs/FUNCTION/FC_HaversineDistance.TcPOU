@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FC_HaversineDistance" Id="{d88a879a-392d-4d85-954a-202909920f86}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_HaversineDistance : LREAL
+VAR_INPUT
+	lat1 : LREAL; // Current latitude
+    lon1 : LREAL; // Current longitude
+    lat2 : LREAL; // Target latitude
+    lon2 : LREAL; // Target longitude
+END_VAR
+VAR
+	 RR : LREAL := 6371000; // Radius of Earth in meters
+    dLat, dLon, aa, cc : LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[dLat := (lat2 - lat1) * PI / 180;
+    dLon := (lon2 - lon1) * PI / 180;
+    lat1 := lat1 * PI / 180;
+    lat2 := lat2 * PI / 180;
+
+    aa := SIN(dLat / 2) * SIN(dLat / 2) + COS(lat1) * COS(lat2) * SIN(dLon / 2) * SIN(dLon / 2);
+    cc := 2 * ATAN(SQRT(aa) / SQRT(1 - aa));
+    FC_HaversineDistance := (RR * cc);]]></ST>
+    </Implementation>
+    <LineIds Name="FC_HaversineDistance">
+      <LineId Id="32" Count="6" />
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

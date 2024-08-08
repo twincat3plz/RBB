@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FC_CalculateAzimuth" Id="{db5a9c8f-055d-4b00-b99e-830bf76593d2}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_CalculateAzimuth : LREAL
+VAR_INPUT
+	lat1 : LREAL; // Current latitude
+    lon1 : LREAL; // Current longitude
+    lat2 : LREAL; // Target latitude
+    lon2 : LREAL; // Target longitude
+END_VAR
+VAR
+	dLon, y, x, azimuth : LREAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[ dLon := (lon2 - lon1) * PI / 180;
+    lat1 := lat1 * PI / 180;
+    lat2 := lat2 * PI / 180;
+
+    y := SIN(dLon) * COS(lat2);
+    x := COS(lat1) * SIN(lat2) - SIN(lat1) * COS(lat2) * COS(dLon);
+    
+    IF x = 0 THEN
+        IF y > 0 THEN
+            azimuth := 90;
+        ELSIF y < 0 THEN
+            azimuth := 270;
+        ELSE
+            azimuth := 0; // Undefined, but we set it to 0
+        END_IF
+    ELSE
+        azimuth := ATAN(y / x) * 180 / PI;
+        IF x < 0 THEN
+            azimuth := azimuth + 180;
+        ELSIF y < 0 THEN
+            azimuth := azimuth + 360;
+        END_IF
+    END_IF
+	
+	IF azimuth >= 360 THEN
+    azimuth := azimuth - 360;
+    END_IF
+    IF azimuth < 0 THEN
+    azimuth := azimuth + 360;
+     END_IF
+
+    FC_CalculateAzimuth := azimuth;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_CalculateAzimuth">
+      <LineId Id="35" Count="22" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="71" Count="4" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="58" Count="0" />
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

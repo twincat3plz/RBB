@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FC_HMIRead" Id="{01703944-4b8a-4371-b296-8120e318af3c}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_HMIRead : STRING
+VAR_INPUT
+	linput : LREAL;
+	inumber : INT;
+END_VAR
+VAR
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[FC_HMIRead := LREAL_TO_FMTSTR(linput,inumber,TRUE);]]></ST>
+    </Implementation>
+    <LineIds Name="FC_HMIRead">
+      <LineId Id="7" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

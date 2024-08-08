@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="RelayModule" Id="{3dd027fd-67aa-4561-8cb0-3b4194623aa9}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM RelayModule
+VAR
+	relaysendcoil: FB_MBWriteCoils;
+	relaysendOnData :  BYTE; //:= 16#04;  // 16#04 ON 3CH
+	relayclock : TON;
+	RelayModuleError : BOOL;
+    RelayModuleErrorID : UDINT;
+	
+	CH1on : BOOL ; // HMI
+CH1off : BOOL ; // HMI
+CH1state : BOOL := FALSE; // HMI
+	
+CH2on : BOOL ; // HMI
+CH2off : BOOL ; // HMI
+CH2state : BOOL := FALSE; // HMI
+	
+CH3on : BOOL ; // HMI
+CH3off : BOOL ; // HMI
+CH3state : BOOL := FALSE; // HMI
+	
+CH4on : BOOL ; // HMI
+CH4off : BOOL ; // HMI
+CH4state : BOOL := FALSE; // HMI
+	
+CH5on : BOOL ; // HMI
+CH5off : BOOL ; // HMI
+CH5state : BOOL := FALSE; // HMI
+
+	relaymodulesendOnData: BYTE;//:= 16#04;  // 16#04 ON 3CH
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[IF NOT relayclock.Q THEN
+	relayclock(IN:=TRUE, PT := T#4S);
+	ELSE 
+		relayclock(IN:=FALSE);
+	END_IF 
+
+
+relaysendcoil(
+	sIPAddr:= '192.168.10.134', 
+	nTCPPort:= 502 , 
+	nUnitID:= 1, 
+	nQuantity:= 6 , 
+	nMBAddr:= 16#0011 , 
+	cbLength:=SIZEOF(relaymodulesendOnData) , 
+	pSrcAddr:= ADR(relaymodulesendOnData), 
+	bExecute:= relayclock.Q, 
+	tTimeout:= T#2S, 
+	bBusy=> , 
+	bError=> RelayModuleError, 
+	nErrId=> RelayModuleErrorID); 
+	
+	
+	IF CH1on THEN
+		relaymodulesendOnData := relaymodulesendOnData+16#01;
+		CH1on := FALSE;
+		CH1State := TRUE;
+		END_IF
+	IF CH1off THEN
+	   relaymodulesendOnData := relaymodulesendOnData-16#01;
+	   CH1off := FALSE;
+	   CH1state := FALSE;
+		END_IF
+	
+	IF CH2on THEN
+		relaymodulesendOnData := relaymodulesendOnData+16#02;
+		CH2on := FALSE;
+		CH2State := TRUE;
+		END_IF
+	IF CH2off THEN
+	    relaymodulesendOnData := relaymodulesendOnData-16#02;
+		CH2off := FALSE;
+		CH2state := FALSE;
+		END_IF
+		
+	IF CH3on THEN
+		relaymodulesendOnData := relaymodulesendOnData+16#04;
+		CH3on := FALSE;
+		CH3State := TRUE;
+		END_IF
+	IF CH3off THEN
+	    relaymodulesendOnData := relaymodulesendOnData-16#04;
+		CH3off := FALSE;
+		CH3state := FALSE;
+		END_IF
+		
+	IF CH4on THEN
+		relaymodulesendOnData := relaymodulesendOnData+16#08;
+		CH4on := FALSE;
+		CH4State := TRUE;
+		END_IF
+	IF CH4off THEN
+	    relaymodulesendOnData := relaymodulesendOnData-16#08;
+		CH4off := FALSE;
+		CH4state := FALSE;
+		END_IF
+		
+	IF CH5on THEN
+		relaymodulesendOnData := relaymodulesendOnData+16#10;
+		CH5on := FALSE;
+		CH5State := TRUE;
+		END_IF
+	IF CH5off THEN
+	    relaymodulesendOnData := relaymodulesendOnData-16#10;
+		CH5off := FALSE;
+		CH5state := FALSE;
+		END_IF
+		]]></ST>
+    </Implementation>
+    <LineIds Name="RelayModule">
+      <LineId Id="6" Count="18" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="36" Count="54" />
+      <LineId Id="35" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FC_AnalogRead" Id="{ee5eb385-9e3f-4368-8507-3c0800cdfdf1}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION FC_AnalogRead : REAL
+VAR_INPUT
+	SelectData : WORD;
+	SelectRange : INT;
+END_VAR
+VAR
+	Transdata : REAL;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[Transdata := WORD_TO_REAL(selectData);
+// FC_AnalogRead :=(Transdata*SelectRange)/32767;
+FC_AnalogRead :=(Transdata/32767)*SelectRange;]]></ST>
+    </Implementation>
+    <LineIds Name="FC_AnalogRead">
+      <LineId Id="11" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="20" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
